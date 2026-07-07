@@ -1,0 +1,106 @@
+---
+import { ClientRouter } from "astro:transitions";
+import "@fontsource-variable/newsreader";
+import "@fontsource-variable/jetbrains-mono";
+import "../styles/global.css";
+
+import BackgroundGraph from "../components/BackgroundGraph.astro";
+import CornerControls from "../components/CornerControls.astro";
+import QuickSwitcher from "../components/QuickSwitcher.astro";
+import PageFlash from "../components/PageFlash.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  note?: string; // active note slug (drives the graph focus)
+  group?: string; // node group of the active note (currently informational)
+  ogImage?: string;
+}
+
+const {
+  title,
+  description = "Owen Parks — undergraduate engineer at the University of Washington.",
+  note = "home",
+  ogImage,
+} = Astro.props;
+
+const siteName = "Owen Parks";
+const fullTitle = note === "home" ? title : `${title} · ${siteName}`;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const og = ogImage ?? `/og/${note}.png`;
+const ogUrl = new URL(og, Astro.site).href;
+
+// Cloudflare Web Analytics — set PUBLIC_CF_BEACON_TOKEN to enable (privacy-friendly, cookieless)
+const cfBeacon = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href={canonical} />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+
+    <!-- OpenGraph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogUrl} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogUrl} />
+
+    <!-- set theme before paint to avoid a flash of the wrong mode -->
+    <script is:inline>
+      (() => {
+        const t = localStorage.getItem("theme");
+        const dark =
+          t === "dark" ||
+          (!t && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
+
+    {
+      cfBeacon && (
+        <script
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={`{"token": "${cfBeacon}"}`}
+        />
+      )
+    }
+
+    <ClientRouter />
+  </head>
+
+  <body data-note={note}>
+    <BackgroundGraph />
+    <PageFlash />
+
+    <main class="relative z-10 mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-6 py-16 sm:py-24">
+      <article class="reading-surface prose-eink hairline mx-auto w-full rounded-sm px-6 py-8 sm:px-10 sm:py-12">
+        <slot />
+      </article>
+      <footer class="mx-auto mt-10 w-full max-w-[40rem] text-center font-mono text-xs text-ink-faint">
+        <span>Owen Parks</span> · <span>Seattle, WA</span> ·
+        <button type="button" data-graph-open class="underline decoration-dotted underline-offset-2 hover:text-accent">open graph</button>
+      </footer>
+    </main>
+
+    <CornerControls />
+    <QuickSwitcher />
+
+    <style is:global>
+      .font-mono { font-family: var(--font-mono); }
+    </style>
+  </body>
+</html>

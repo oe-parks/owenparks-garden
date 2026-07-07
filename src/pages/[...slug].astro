@@ -1,0 +1,137 @@
+---
+import { getCollection, render } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Backlinks from "../components/Backlinks.astro";
+import { slugify, slugToHref } from "../lib/graph";
+
+export async function getStaticPaths() {
+  const notes = (await getCollection("notes")).filter((n) => !n.data.draft);
+  const books = await getCollection("books");
+
+  const notePaths = notes.map((entry) => ({
+    params: { slug: entry.id === "home" ? undefined : entry.id },
+    props: { kind: "note" as const, entry },
+  }));
+  const bookPaths = books.map((entry) => ({
+    params: { slug: entry.id },
+    props: { kind: "book" as const, entry },
+  }));
+  return [...notePaths, ...bookPaths];
+}
+
+const { kind, entry } = Astro.props;
+const { Content } = await render(entry);
+const slug = entry.id;
+const data: any = entry.data;
+
+// hub / category listings
+let books: any[] = [];
+let posts: any[] = [];
+if (kind === "note" && (slug === "bookshelf" || data.group === "category")) {
+  const all = await getCollection("books");
+  books = all
+    .filter((b) => (slug === "bookshelf" ? true : b.data.categories.map(slugify).includes(slug)))
+    .sort((a, b) => (b.data.started?.getTime() ?? 0) - (a.data.started?.getTime() ?? 0));
+}
+if (kind === "note" && slug === "blog") {
+  posts = (await getCollection("notes"))
+    .filter((n) => n.data.group === "blog" && !n.data.draft)
+    .sort((a, b) => +(b.data.date ?? 0) - +(a.data.date ?? 0));
+}
+
+const title = data.title;
+const description = data.description;
+const dateFmt = (d?: Date) =>
+  d ? d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
+---
+
+<BaseLayout title={title} description={description} note={slug} group={data.group}>
+  {
+    kind === "book" && (
+      <header class="mb-6 flex gap-5">
+        {data.cover && (
+          <img
+            src={`/covers/${data.cover}.png`}
+            alt={`Cover of ${data.title}`}
+            width="110"
+            loading="lazy"
+            class="dithered h-auto w-[110px] shrink-0"
+          />
+        )}
+        <div class="min-w-0">
+          <h1 class="!mb-1">{data.title}</h1>
+          <p class="!mb-2 text-ink-soft">{data.author}</p>
+          <p class="font-mono text-xs text-ink-faint">
+            {data.status}
+            {data.stars != null && <> · {"★".repeat(data.stars)}{"☆".repeat(5 - data.stars)}</>}
+            {data.released && <> · {data.released}</>}
+          </p>
+          {data.categories?.length > 0 && (
+            <p class="mt-2 flex flex-wrap gap-x-3 text-sm">
+              {data.categories.map((c: string) => (
+                <a class="wikilink" href={slugToHref(slugify(c))}>
+                  {c}
+                </a>
+              ))}
+            </p>
+          )}
+        </div>
+      </header>
+    )
+  }
+
+  {
+    kind === "note" && (
+      <header class="mb-6">
+        <h1>{title}</h1>
+        {data.group === "blog" && data.date && (
+          <p class="font-mono text-xs text-ink-faint">{dateFmt(data.date)}</p>
+        )}
+      </header>
+    )
+  }
+
+  <Content />
+
+  {
+    books.length > 0 && (
+      <ul class="mt-6 flex flex-col divide-y divide-[var(--hairline)] border-t border-[var(--hairline)]">
+        {books.map((b) => (
+          <li class="py-3">
+            <a href={slugToHref(b.id)} class="wikilink text-base">
+              {b.data.title}
+            </a>
+            <span class="ml-2 font-mono text-xs text-ink-faint">
+              {b.data.author} · {b.data.status}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  {
+    posts.length > 0 && (
+      <ul class="mt-6 flex flex-col divide-y divide-[var(--hairline)] border-t border-[var(--hairline)]">
+        {posts.map((p) => (
+          <li class="flex items-baseline justify-between gap-4 py-3">
+            <a href={slugToHref(p.id)} class="wikilink text-base">
+              {p.data.title}
+            </a>
+            <span class="shrink-0 font-mono text-xs text-ink-faint">{dateFmt(p.data.date)}</span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  {data.buy_link && (
+    <p class="mt-6">
+      <a href={data.buy_link} target="_blank" rel="noopener" class="font-mono text-sm">
+        find it →
+      </a>
+    </p>
+  )}
+
+  <Backlinks slug={slug} />
+</BaseLayout>

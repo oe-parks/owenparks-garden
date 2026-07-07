@@ -1,0 +1,44 @@
+---
+// A quick two-step "refresh" flash on navigation, mimicking an e-ink screen redraw.
+---
+
+<div id="page-flash" aria-hidden="true"></div>
+
+<style is:global>
+  #page-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    background: var(--ink);
+    opacity: 0;
+  }
+  #page-flash.flash {
+    animation: eink-refresh 220ms steps(2, end);
+  }
+  @keyframes eink-refresh {
+    0% { opacity: 0; }
+    35% { opacity: 0.9; }
+    65% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #page-flash.flash {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  if (!(window as any).__flashBound) {
+    (window as any).__flashBound = true;
+    document.addEventListener("astro:after-swap", () => {
+      const el = document.getElementById("page-flash");
+      if (!el) return;
+      el.classList.remove("flash");
+      // force reflow so the animation can restart on every navigation
+      void el.offsetWidth;
+      el.classList.add("flash");
+    });
+  }
+</script>

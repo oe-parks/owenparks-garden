@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+/* dark mode driven by a .dark class on <html> (toggle + system default) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  E-INK DESIGN TOKENS
+  Light-first "paper" ground with near-black ink; dark mode is the inverse.
+  Everything is grayscale except a single muted UW-purple accent.
+  Tweak these freely — they cascade everywhere.
+*/
+:root {
+  --paper: #e9e6dd; /* warm paper-gray, not pure white */
+  --paper-raised: #f2efe7; /* cards / reading backdrop */
+  --ink: #1c1b19; /* near-black, not pure black */
+  --ink-soft: #57544c; /* secondary text, metadata */
+  --ink-faint: #8a877d; /* captions, disabled */
+  --hairline: #c6c2b6; /* 1px rules, borders */
+  --accent: #4b2e83; /* UW husky purple (muted in use) */
+  --accent-soft: #4b2e8322;
+
+  /* graph (ink-on-paper, thin lines) */
+  --graph-node: #6f6c63;
+  --graph-edge: #b4b0a4;
+  --graph-active: var(--accent);
+
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #17171a; /* charcoal */
+  --paper-raised: #202024;
+  --ink: #dcd9d0; /* light ink */
+  --ink-soft: #a3a097;
+  --ink-faint: #6f6d66;
+  --hairline: #34343a;
+  --accent: #b3a1e6; /* lighter purple reads better on dark */
+  --accent-soft: #b3a1e622;
+
+  --graph-node: #7f7c74;
+  --graph-edge: #3a3a40;
+  --graph-active: var(--accent);
+
+  color-scheme: dark;
+}
+
+/* map semantic tokens to Tailwind utilities (bg-paper, text-ink, ...) */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-hairline: var(--hairline);
+  --color-accent: var(--accent);
+
+  --font-serif: "Newsreader Variable", Newsreader, Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-serif);
+    background-color: var(--paper);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-size: 1.075rem;
+    line-height: 1.7;
+  }
+
+  /* reading measure + generous whitespace (minimal, calm) */
+  .prose-eink {
+    max-width: 40rem;
+    font-size: 1.075rem;
+  }
+  .prose-eink h1,
+  .prose-eink h2,
+  .prose-eink h3 {
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+  .prose-eink h1 { font-size: 2rem; margin: 0 0 0.75rem; }
+  .prose-eink h2 { font-size: 1.4rem; margin: 2.2rem 0 0.6rem; }
+  .prose-eink h3 { font-size: 1.15rem; margin: 1.6rem 0 0.4rem; }
+  .prose-eink p { margin: 0 0 1.1rem; }
+  .prose-eink ul,
+  .prose-eink ol { margin: 0 0 1.1rem; padding-left: 1.2rem; }
+  .prose-eink li { margin: 0.2rem 0; }
+  .prose-eink blockquote {
+    margin: 1.4rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid var(--hairline);
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  .prose-eink code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    padding: 0.05em 0.35em;
+    border-radius: 2px;
+  }
+  .prose-eink pre {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    padding: 1rem;
+    overflow-x: auto;
+    border-radius: 2px;
+  }
+  .prose-eink pre code { background: none; border: 0; padding: 0; }
+  .prose-eink hr { border: 0; border-top: 1px solid var(--hairline); margin: 2rem 0; }
+  .prose-eink img { filter: grayscale(1); border: 1px solid var(--hairline); }
+  /* dithered 1-bit images: black-on-transparent, inverted for dark mode */
+  .prose-eink img.dithered,
+  img.dithered { filter: none; border: 1px solid var(--hairline); background: transparent; }
+  .dark img.dithered { filter: invert(1); }
+
+  /* links: dotted underline, accent on hover; wikilinks slightly stronger */
+  a {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--ink-faint);
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  }
+  a:hover {
+    color: var(--accent);
+    text-decoration-color: var(--accent);
+  }
+  a.wikilink {
+    text-decoration-color: var(--accent-soft);
+    color: var(--ink);
+  }
+  a.wikilink:hover { color: var(--accent); }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--paper);
+  }
+}
+
+/* hairline, flat, boxy utility */
+.hairline { border: 1px solid var(--hairline); }
+
+/* Reading backdrop: keeps text crisp over the moving graph */
+.reading-surface {
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: blur(3px) saturate(0);
+  -webkit-backdrop-filter: blur(3px) saturate(0);
+}
+
+/* respect reduced motion everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

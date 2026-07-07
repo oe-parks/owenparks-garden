@@ -1,0 +1,29 @@
+---
+import { getGraph } from "../lib/graph";
+
+interface Props {
+  slug: string;
+}
+const { slug } = Astro.props;
+const { backlinksFor } = await getGraph();
+const links = backlinksFor(slug);
+---
+
+{
+  links.length > 0 && (
+    <nav class="mt-12 border-t border-[var(--hairline)] pt-4" aria-label="Backlinks">
+      <p class="mb-2 font-mono text-[0.7rem] uppercase tracking-wider text-ink-faint">
+        Linked from
+      </p>
+      <ul class="flex flex-wrap gap-x-4 gap-y-1">
+        {links.map((l) => (
+          <li>
+            <a href={l.url} class="wikilink text-sm">
+              {l.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}

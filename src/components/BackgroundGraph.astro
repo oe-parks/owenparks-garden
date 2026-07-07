@@ -1,0 +1,428 @@
+---
+// The graph persists across view transitions so it can morph between notes
+// instead of reloading. Data comes from /graph.json (built once).
+---
+
+<div id="bg-graph" aria-hidden="true" transition:persist>
+  <canvas id="bg-graph-canvas"></canvas>
+  <div id="graph-hint" class="font-mono">click a node to travel · scroll to zoom · esc to close</div>
+</div>
+
+<style is:global>
+  #bg-graph {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  #bg-graph-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #graph-hint {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  /* full interactive mode */
+  body.graph-full #bg-graph {
+    z-index: 40;
+    pointer-events: auto;
+    background: color-mix(in srgb, var(--paper) 78%, transparent);
+    backdrop-filter: blur(2px);
+    cursor: grab;
+  }
+  body.graph-full #bg-graph:active { cursor: grabbing; }
+  body.graph-full #graph-hint { opacity: 1; }
+  body.graph-full main {
+    opacity: 0.04;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+</style>
+
+<script>
+  import {
+    forceSimulation,
+    forceLink,
+    forceManyBody,
+    forceCenter,
+    forceCollide,
+  } from "d3-force";
+  import { navigate } from "astro:transitions/client";
+
+  type GNode = {
+    id: string;
+    title: string;
+    url: string;
+    group: string;
+    degree: number;
+    x?: number;
+    y?: number;
+    vx?: number;
+    vy?: number;
+    fx?: number | null;
+    fy?: number | null;
+  };
+  type GEdge = { source: any; target: any };
+
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const isCoarse = window.matchMedia("(pointer: coarse)").matches;
+
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    return {
+      node: cs.getPropertyValue("--graph-node").trim() || "#6f6c63",
+      edge: cs.getPropertyValue("--graph-edge").trim() || "#b4b0a4",
+      active: cs.getPropertyValue("--accent").trim() || "#4b2e83",
+      ink: cs.getPropertyValue("--ink").trim() || "#1c1b19",
+      faint: cs.getPropertyValue("--ink-faint").trim() || "#8a877d",
+    };
+  }
+
+  function radiusFor(n: GNode) {
+    return 2.2 + Math.sqrt(n.degree || 0) * 1.8;
+  }
+
+  async function createController() {
+    const wrap = document.getElementById("bg-graph")!;
+    const canvas = document.getElementById("bg-graph-canvas") as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d")!;
+
+    let nodes: GNode[] = [];
+    let edges: GEdge[] = [];
+    let byId = new Map<string, GNode>();
+    let colors = readColors();
+
+    try {
+      const data = await fetch("/graph.json").then((r) => r.json());
+      nodes = data.nodes;
+      edges = data.edges.map((e: any) => ({ source: e.source, target: e.target }));
+    } catch {
+      return null;
+    }
+    byId = new Map(nodes.map((n) => [n.id, n]));
+
+    // camera
+    let cam = { tx: 0, ty: 0, scale: 1 };
+    let targetCam = { ...cam };
+    let full = false;
+    let activeId: string | null = null;
+    let neighborIds = new Set<string>();
+
+    // pointer (world-space) for ambient nudge
+    let pointer = { x: 0, y: 0, active: false };
+
+    const sim = forceSimulation<GNode>(nodes)
+      .force(
+        "link",
+        forceLink<GNode, any>(edges)
+          .id((d: any) => d.id)
+          .distance(48)
+          .strength(0.25),
+      )
+      .force("charge", forceManyBody().strength(-90))
+      .force("center", forceCenter(0, 0).strength(0.04))
+      .force("collide", forceCollide<GNode>().radius((d) => radiusFor(d) + 6))
+      .alpha(1);
+
+    if (prefersReduced || isCoarse) {
+      // static layout: settle synchronously, then no idle motion
+      sim.stop();
+      for (let i = 0; i < 220; i++) sim.tick();
+    } else {
+      sim.alphaTarget(0.015).restart(); // gentle perpetual drift
+    }
+
+    let width = 0,
+      height = 0,
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = wrap.clientWidth;
+      height = wrap.clientHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    function screenFromWorld(x: number, y: number) {
+      return {
+        x: width / 2 + cam.tx + x * cam.scale,
+        y: height / 2 + cam.ty + y * cam.scale,
+      };
+    }
+    function worldFromScreen(sx: number, sy: number) {
+      return {
+        x: (sx - width / 2 - cam.tx) / cam.scale,
+        y: (sy - height / 2 - cam.ty) / cam.scale,
+      };
+    }
+
+    function focus(id: string | null) {
+      activeId = id && byId.has(id) ? id : null;
+      neighborIds = new Set();
+      if (activeId) {
+        for (const e of edges) {
+          const s = (e.source as GNode).id ?? (e.source as any);
+          const t = (e.target as GNode).id ?? (e.target as any);
+          if (s === activeId) neighborIds.add(t);
+          if (t === activeId) neighborIds.add(s);
+        }
+        // re-center camera on the active node (ambient morph)
+        const n = byId.get(activeId)!;
+        if (typeof n.x === "number" && !full) {
+          targetCam = { tx: -n.x * cam.scale, ty: -n.y! * cam.scale, scale: cam.scale };
+        }
+      } else if (!full) {
+        targetCam = { tx: 0, ty: 0, scale: cam.scale };
+      }
+      if (!prefersReduced && !isCoarse) sim.alphaTarget(0.05).restart();
+    }
+
+    function draw() {
+      colors = colorsCache;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      // ambient pointer nudge (world-space repulsion near cursor)
+      if (pointer.active && !prefersReduced && !isCoarse) {
+        for (const n of nodes) {
+          const w = screenFromWorld(n.x!, n.y!);
+          const dx = w.x - pointer.x;
+          const dy = w.y - pointer.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < 120 * 120 && d2 > 0.01) {
+            const f = (1 - Math.sqrt(d2) / 120) * 1.4;
+            n.vx! += (dx / Math.sqrt(d2)) * f;
+            n.vy! += (dy / Math.sqrt(d2)) * f;
+          }
+        }
+      }
+
+      // edges
+      ctx.lineWidth = 1;
+      for (const e of edges) {
+        const s = e.source as GNode;
+        const t = e.target as GNode;
+        const a = screenFromWorld(s.x!, s.y!);
+        const b = screenFromWorld(t.x!, t.y!);
+        const touches = activeId && (s.id === activeId || t.id === activeId);
+        ctx.strokeStyle = touches ? colors.active : colors.edge;
+        ctx.globalAlpha = full ? 0.5 : touches ? 0.5 : 0.28;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // nodes
+      for (const n of nodes) {
+        const p = screenFromWorld(n.x!, n.y!);
+        const r = radiusFor(n) * (full ? 1.15 : 1);
+        const isActive = n.id === activeId;
+        const isNeighbor = neighborIds.has(n.id);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        if (isActive) {
+          ctx.fillStyle = colors.active;
+          ctx.globalAlpha = 1;
+        } else if (isNeighbor) {
+          ctx.fillStyle = colors.node;
+          ctx.globalAlpha = 0.95;
+        } else {
+          ctx.fillStyle = colors.node;
+          ctx.globalAlpha = full ? 0.8 : 0.4;
+        }
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // labels: active + neighbours always; everything in full mode / on hover
+        const showLabel = full || isActive || isNeighbor;
+        if (showLabel) {
+          ctx.font = `${full ? 12 : 11}px "JetBrains Mono Variable", monospace`;
+          ctx.fillStyle = isActive ? colors.active : colors.faint;
+          ctx.globalAlpha = isActive ? 1 : full ? 0.85 : 0.7;
+          ctx.textAlign = "center";
+          ctx.fillText(n.title, p.x, p.y - r - 5);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // camera easing (ambient auto-center)
+      if (!full) {
+        cam.tx += (targetCam.tx - cam.tx) * 0.06;
+        cam.ty += (targetCam.ty - cam.ty) * 0.06;
+      }
+    }
+
+    // colors need refreshing on theme change; cache to avoid per-frame layout
+    let colorsCache = readColors();
+    document.addEventListener("themechange", () => (colorsCache = readColors()));
+
+    let raf = 0;
+    function loop() {
+      draw();
+      raf = requestAnimationFrame(loop);
+    }
+    if (prefersReduced || isCoarse) {
+      draw(); // one static frame; redraw on focus/interaction only
+    } else {
+      loop();
+    }
+    const redrawStatic = () => {
+      if (prefersReduced || isCoarse) draw();
+    };
+    sim.on("tick", redrawStatic);
+
+    // ---- ambient pointer ----
+    window.addEventListener("pointermove", (ev) => {
+      if (full) return;
+      pointer.x = ev.clientX;
+      pointer.y = ev.clientY;
+      pointer.active = true;
+    });
+    window.addEventListener("pointerleave", () => (pointer.active = false));
+
+    // ---- full mode interactions ----
+    function pickNode(sx: number, sy: number): GNode | null {
+      const w = worldFromScreen(sx, sy);
+      let best: GNode | null = null;
+      let bestD = Infinity;
+      for (const n of nodes) {
+        const dx = n.x! - w.x;
+        const dy = n.y! - w.y;
+        const d = dx * dx + dy * dy;
+        const rr = (radiusFor(n) + 8) / cam.scale;
+        if (d < rr * rr && d < bestD) {
+          bestD = d;
+          best = n;
+        }
+      }
+      return best;
+    }
+
+    let dragging: { node: GNode | null; panning: boolean; sx: number; sy: number } | null = null;
+    canvas.addEventListener("pointerdown", (ev) => {
+      if (!full) return;
+      const n = pickNode(ev.clientX, ev.clientY);
+      dragging = { node: n, panning: !n, sx: ev.clientX, sy: ev.clientY };
+      if (n) {
+        n.fx = n.x;
+        n.fy = n.y;
+        sim.alphaTarget(0.2).restart();
+      }
+      (ev.target as Element).setPointerCapture?.(ev.pointerId);
+    });
+    canvas.addEventListener("pointermove", (ev) => {
+      if (!full || !dragging) return;
+      if (dragging.node) {
+        const w = worldFromScreen(ev.clientX, ev.clientY);
+        dragging.node.fx = w.x;
+        dragging.node.fy = w.y;
+      } else {
+        cam.tx += ev.clientX - dragging.sx;
+        cam.ty += ev.clientY - dragging.sy;
+        dragging.sx = ev.clientX;
+        dragging.sy = ev.clientY;
+      }
+    });
+    canvas.addEventListener("pointerup", (ev) => {
+      if (!full) return;
+      const wasDrag =
+        dragging &&
+        (Math.abs(ev.clientX - dragging.sx) > 4 || Math.abs(ev.clientY - dragging.sy) > 4);
+      if (dragging?.node) {
+        // click (not drag) → navigate
+        if (!wasDrag) {
+          const url = dragging.node.url;
+          setFull(false);
+          navigate(url);
+        }
+        dragging.node.fx = null;
+        dragging.node.fy = null;
+      }
+      sim.alphaTarget(prefersReduced || isCoarse ? 0 : 0.015);
+      dragging = null;
+    });
+    canvas.addEventListener(
+      "wheel",
+      (ev) => {
+        if (!full) return;
+        ev.preventDefault();
+        const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+        cam.scale = Math.max(0.3, Math.min(4, cam.scale * factor));
+      },
+      { passive: false },
+    );
+
+    function setFull(v: boolean) {
+      full = v;
+      document.body.classList.toggle("graph-full", v);
+      if (v) {
+        if (prefersReduced || isCoarse) {
+          draw();
+        } else {
+          sim.alphaTarget(0.03).restart();
+        }
+      } else {
+        focus(document.body.dataset.note ?? null);
+        if (prefersReduced || isCoarse) draw();
+      }
+    }
+
+    return {
+      focus,
+      setFull,
+      toggleFull: () => setFull(!full),
+      isFull: () => full,
+    };
+  }
+
+  // ---- singleton wiring across view transitions ----
+  async function ensure() {
+    if (!(window as any).__graph) {
+      (window as any).__graph = await createController();
+    }
+    return (window as any).__graph;
+  }
+
+  async function onLoad() {
+    const g = await ensure();
+    if (!g) return;
+    g.focus(document.body.dataset.note ?? "home");
+  }
+
+  if (!(window as any).__graphBound) {
+    (window as any).__graphBound = true;
+    document.addEventListener("astro:page-load", onLoad);
+    document.addEventListener("keydown", async (e) => {
+      const g = (window as any).__graph;
+      if (e.key === "Escape" && g?.isFull()) {
+        e.preventDefault();
+        g.setFull(false);
+      }
+    });
+    document.addEventListener("graph:toggle", async () => {
+      const g = await ensure();
+      g?.toggleFull();
+    });
+    document.addEventListener("graph:open", async () => {
+      const g = await ensure();
+      g?.setFull(true);
+    });
+  }
+  // in case page-load already fired before binding
+  onLoad();
+</script>

@@ -1,0 +1,163 @@
+---
+// Obsidian-style quick switcher: fuzzy-jump to any note. ⌘K / Ctrl-K.
+---
+
+<div id="switcher" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-label="Jump to note">
+  <div id="switcher-scrim" class="absolute inset-0 bg-[var(--ink)]/25 backdrop-blur-[2px]"></div>
+  <div class="relative mx-auto mt-[12vh] w-[min(34rem,92vw)]">
+    <div class="hairline overflow-hidden rounded-sm bg-paper-raised shadow-xl">
+      <input
+        id="switcher-input"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Jump to a note…"
+        class="w-full bg-transparent px-4 py-3 font-mono text-sm text-ink outline-none placeholder:text-ink-faint"
+      />
+      <ul id="switcher-results" class="max-h-[46vh] overflow-y-auto border-t border-[var(--hairline)]"></ul>
+    </div>
+    <p class="mt-2 text-center font-mono text-[0.7rem] text-ink-faint">↑↓ to move · ↵ to open · esc to close</p>
+  </div>
+</div>
+
+<script>
+  import { navigate } from "astro:transitions/client";
+
+  type Item = { id: string; title: string; url: string; group: string };
+  const GROUPS: Record<string, string> = {
+    hub: "Pages",
+    interest: "Interests",
+    hobby: "Life",
+    book: "Bookshelf",
+    category: "Topics",
+    blog: "Writing",
+    meta: "Meta",
+  };
+
+  let items: Item[] = [];
+  let filtered: Item[] = [];
+  let active = 0;
+
+  async function loadIndex() {
+    if (items.length) return;
+    try {
+      const data = await fetch("/graph.json").then((r) => r.json());
+      items = data.nodes.map((n: any) => ({ id: n.id, title: n.title, url: n.url, group: n.group }));
+    } catch {
+      items = [];
+    }
+  }
+
+  // subsequence fuzzy score: lower is better; -1 = no match
+  function score(q: string, s: string): number {
+    if (!q) return 0;
+    q = q.toLowerCase();
+    s = s.toLowerCase();
+    let qi = 0,
+      penalty = 0,
+      last = -1;
+    for (let i = 0; i < s.length && qi < q.length; i++) {
+      if (s[i] === q[qi]) {
+        if (last >= 0) penalty += i - last - 1;
+        last = i;
+        qi++;
+      }
+    }
+    return qi === q.length ? penalty + s.indexOf(q[0]) : -1;
+  }
+
+  function render() {
+    const list = document.getElementById("switcher-results")!;
+    list.innerHTML = "";
+    let lastGroup = "";
+    filtered.forEach((it, i) => {
+      if (it.group !== lastGroup) {
+        lastGroup = it.group;
+        const h = document.createElement("li");
+        h.className = "px-4 pt-2 pb-1 font-mono text-[0.65rem] uppercase tracking-wider text-ink-faint";
+        h.textContent = GROUPS[it.group] ?? it.group;
+        list.appendChild(h);
+      }
+      const li = document.createElement("li");
+      li.dataset.idx = String(i);
+      li.className =
+        "cursor-pointer px-4 py-2 text-sm " +
+        (i === active ? "bg-accent/10 text-accent" : "text-ink hover:bg-[var(--hairline)]/40");
+      li.textContent = it.title;
+      li.addEventListener("mouseenter", () => {
+        active = i;
+        render();
+      });
+      li.addEventListener("click", () => go(it));
+      list.appendChild(li);
+    });
+  }
+
+  function filter(q: string) {
+    filtered = items
+      .map((it) => ({ it, s: score(q, it.title) }))
+      .filter((x) => x.s >= 0)
+      .sort((a, b) => a.s - b.s)
+      .map((x) => x.it);
+    active = 0;
+    render();
+  }
+
+  function open() {
+    const el = document.getElementById("switcher")!;
+    const input = document.getElementById("switcher-input") as HTMLInputElement;
+    loadIndex().then(() => {
+      input.value = "";
+      filter("");
+      el.classList.remove("hidden");
+      input.focus();
+    });
+  }
+  function close() {
+    document.getElementById("switcher")?.classList.add("hidden");
+  }
+  function go(it: Item) {
+    close();
+    navigate(it.url);
+  }
+
+  if (!(window as any).__switcherBound) {
+    (window as any).__switcherBound = true;
+
+    document.addEventListener("switcher:open", open);
+
+    document.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        open();
+        return;
+      }
+      const el = document.getElementById("switcher");
+      if (!el || el.classList.contains("hidden")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        active = Math.min(active + 1, filtered.length - 1);
+        render();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        active = Math.max(active - 1, 0);
+        render();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (filtered[active]) go(filtered[active]);
+      }
+    });
+
+    document.addEventListener("input", (e) => {
+      if ((e.target as HTMLElement).id === "switcher-input")
+        filter((e.target as HTMLInputElement).value);
+    });
+
+    document.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).id === "switcher-scrim") close();
+    });
+  }
+</script>

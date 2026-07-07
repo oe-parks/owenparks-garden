@@ -1,0 +1,60 @@
+---
+// Minimal corner cluster. Non-persistent chrome: small, hairline, out of the way.
+const btn =
+  "grid h-9 w-9 place-items-center text-ink-soft transition-colors hover:text-accent";
+---
+
+<nav
+  aria-label="Site controls"
+  class="hairline fixed right-4 top-4 z-50 flex flex-col rounded-sm bg-paper-raised/80 backdrop-blur-sm divide-y divide-[var(--hairline)]"
+>
+  <button type="button" class={btn} data-action="switcher" title="Jump to… (⌘K)" aria-label="Search notes">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+  </button>
+  <button type="button" class={btn} data-action="graph" title="Graph view" aria-label="Toggle graph view">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="7" r="2.2"></circle><circle cx="18" cy="9" r="2.2"></circle><circle cx="12" cy="18" r="2.2"></circle><line x1="7.7" y1="8.2" x2="10.6" y2="16.4"></line><line x1="8" y1="7.4" x2="16" y2="8.6"></line><line x1="16.7" y1="10.6" x2="13.1" y2="16.2"></line></svg>
+  </button>
+  <a class={btn} href="/resume.pdf" target="_blank" rel="noopener" title="Résumé (PDF)" aria-label="Download résumé PDF">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v4h4"></path><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="16.5" x2="15" y2="16.5"></line></svg>
+  </a>
+  <button type="button" class={btn} data-action="theme" title="Toggle light/dark" aria-label="Toggle light or dark mode">
+    <svg class="theme-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>
+    <svg class="theme-moon hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12.8A8 8 0 1 1 11.2 3a6 6 0 0 0 9.8 9.8z"></path></svg>
+  </button>
+</nav>
+
+<script>
+  function syncThemeIcon() {
+    const dark = document.documentElement.classList.contains("dark");
+    document.querySelectorAll(".theme-sun").forEach((e) => e.classList.toggle("hidden", dark));
+    document.querySelectorAll(".theme-moon").forEach((e) => e.classList.toggle("hidden", !dark));
+  }
+
+  if (!(window as any).__controlsBound) {
+    (window as any).__controlsBound = true;
+
+    document.addEventListener("click", (e) => {
+      const el = (e.target as Element).closest("[data-action]");
+      if (!el) return;
+      const action = el.getAttribute("data-action");
+      if (action === "switcher") document.dispatchEvent(new CustomEvent("switcher:open"));
+      else if (action === "graph" || action === "graph-open")
+        document.dispatchEvent(new CustomEvent("graph:toggle"));
+      else if (action === "theme") {
+        const dark = document.documentElement.classList.toggle("dark");
+        localStorage.setItem("theme", dark ? "dark" : "light");
+        document.dispatchEvent(new CustomEvent("themechange"));
+        syncThemeIcon();
+      }
+    });
+
+    // footer "open graph" link
+    document.addEventListener("click", (e) => {
+      if ((e.target as Element).closest("[data-graph-open]"))
+        document.dispatchEvent(new CustomEvent("graph:toggle"));
+    });
+
+    document.addEventListener("astro:page-load", syncThemeIcon);
+  }
+  syncThemeIcon();
+</script>
