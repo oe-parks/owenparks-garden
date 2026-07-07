@@ -1,0 +1,11 @@
+{
+  // Deploy the static Astro build as a Cloudflare Workers static-assets site.
+  // `npm run build` produces ./dist, and `npx wrangler deploy` uploads it.
+  "name": "owenparks-garden",
+  "compatibility_date": "2026-07-01",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
