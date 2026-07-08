@@ -442,6 +442,23 @@
       if (e.key === "Escape" && g?.isFull()) {
         e.preventDefault();
         g.setFull(false);
+        return;
+      }
+      // 'g' toggles the graph — unless you're typing or the switcher is open
+      const el = e.target as HTMLElement | null;
+      const typing =
+        !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      const switcherOpen = !document.getElementById("switcher")?.classList.contains("hidden");
+      if (
+        (e.key === "g" || e.key === "G") &&
+        !typing &&
+        !switcherOpen &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        (await ensure())?.toggleFull();
       }
     });
     document.addEventListener("graph:toggle", async () => {

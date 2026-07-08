@@ -4,21 +4,20 @@ description: Undergraduate engineer at the University of Washington — material
 group: hub
 ---
 
-<!-- placeholder copy — rewrite in your own voice -->
+Hello,
 
-I'm **Owen Parks**, an undergraduate engineering student in my final year at the
-[University of Washington](https://www.washington.edu), studying
-[[materials-science]] alongside [[applied-mathematics|applied]] and
-[[pure-mathematics|pure math]]. I currently research in the Roumeli Lab.
+My name is **Owen Parks**, an undergraduate engineering student in my final year at the
+[University of Washington](https://www.washington.edu). I focused on
+[[materials-science|materials science]] alongside [[applied-mathematics|applied]] and
+[[pure-mathematics|pure math]]. 
 
-Lately I've been circling the places where math meets the sciences —
-[[formal-verification]], [[machine-learning]], and
-[[computational-neuroscience]]. This site is a small garden of those interests;
-follow the links, or hit <kbd>⌘K</kbd> to wander.
+Currently, I am a mathematics research intern at [Math, Inc.](https://www.math.inc/) and an undergraduate researcher in the Roumeli research group at the UW.
 
-When I'm not buried in a problem set I'm [[fly-fishing]], out
-[[running]], or chasing a [[music|record]]. I also keep a [[bookshelf]] and,
-occasionally, a [[blog]].
+When I'm not in the lab or buried in a p-set or book, I'm outside [[biking|biking]], [[fly-fishing|fly fishing]], or [[hiking|hiking]] in the Pacific Northwest. I also keep a [[bookshelf|bookshelf]] and,
+occasionally, a [[blog|blog]].
+
+This site is a small garden of my interests;
+follow the links, use <kbd>G</kbd> to toggle graph view, or hit <kbd>⌘K</kbd> to wander.
 
 You can find my [[cv|CV]], or reach me by
 [email](mailto:owenp1@uw.edu) ·
