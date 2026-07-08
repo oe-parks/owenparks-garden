@@ -133,5 +133,5 @@ const dateFmt = (d?: Date) =>
     </p>
   )}
 
-  <Backlinks slug={slug} />
+  {slug !== "home" && <Backlinks slug={slug} />}
 </BaseLayout>

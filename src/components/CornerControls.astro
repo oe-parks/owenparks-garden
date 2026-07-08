@@ -8,11 +8,14 @@ const btn =
   aria-label="Site controls"
   class="hairline fixed right-4 top-4 z-50 flex flex-col rounded-sm bg-paper-raised/80 backdrop-blur-sm divide-y divide-[var(--hairline)]"
 >
-  <button type="button" class={btn} data-action="switcher" title="Jump to… (⌘K)" aria-label="Search notes">
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
-  </button>
+  <a class={btn} href="/" title="Home" aria-label="Home">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 11.5 12 4l8 7.5"></path><path d="M6 10.5V20h12v-9.5"></path></svg>
+  </a>
   <button type="button" class={btn} data-action="graph" title="Graph view (g)" aria-label="Toggle graph view">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="7" r="2.2"></circle><circle cx="18" cy="9" r="2.2"></circle><circle cx="12" cy="18" r="2.2"></circle><line x1="7.7" y1="8.2" x2="10.6" y2="16.4"></line><line x1="8" y1="7.4" x2="16" y2="8.6"></line><line x1="16.7" y1="10.6" x2="13.1" y2="16.2"></line></svg>
+  </button>
+  <button type="button" class={btn} data-action="switcher" title="Jump to… (⌘K)" aria-label="Search notes">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
   </button>
   <a class={btn} href="/resume.pdf" target="_blank" rel="noopener" title="Résumé (PDF)" aria-label="Download résumé PDF">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v4h4"></path><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="16.5" x2="15" y2="16.5"></line></svg>
