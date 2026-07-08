@@ -5,4 +5,4 @@ group: category
 
 <!-- placeholder -->
 
-Often overlapping with [[historical-fantasy]].
+The R.F. Kuang trilogy on my [[bookshelf]] lives here.

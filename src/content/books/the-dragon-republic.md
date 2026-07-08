@@ -7,7 +7,7 @@ stars: 5
 started: 2025-03-27
 finished: 2025-04-01
 released: 2019
-categories: [fantasy, historical-fantasy]
+categories: [fantasy]
 buy_link: https://www.amazon.com/Dragon-Republic-Poppy-War/dp/0062662600
 ---
 

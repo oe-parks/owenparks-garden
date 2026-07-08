@@ -7,7 +7,7 @@ stars: 4
 started: 2026-02-23
 finished: 2026-03-27
 released: 2024
-categories: [machine-learning, artificial-intelligence, computer-science]
+categories: [computer science]
 buy_link: https://www.amazon.com/Why-Machines-Learn-Elegant-Behind/dp/0593185749
 ---
 

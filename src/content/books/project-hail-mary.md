@@ -6,7 +6,7 @@ stars: 5
 started: 2026-04-02
 finished: 2026-05-12
 released: 2022
-categories: [science-fiction]
+categories: [science fiction]
 buy_link: https://www.amazon.com/Project-Hail-Mary-Andy-Weir/dp/0593135202
 ---
 

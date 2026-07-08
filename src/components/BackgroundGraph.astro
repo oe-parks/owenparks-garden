@@ -117,6 +117,19 @@
     let full = false;
     let activeId: string | null = null;
     let neighborIds = new Set<string>();
+    let hoveredId: string | null = null;
+    let hoverNeighbors = new Set<string>();
+
+    const neighborsOf = (id: string) => {
+      const set = new Set<string>();
+      for (const e of edges) {
+        const s = (e.source as GNode).id ?? (e.source as any);
+        const t = (e.target as GNode).id ?? (e.target as any);
+        if (s === id) set.add(t);
+        if (t === id) set.add(s);
+      }
+      return set;
+    };
 
     // pointer (world-space) for ambient nudge
     let pointer = { x: 0, y: 0, active: false };
@@ -126,12 +139,12 @@
         "link",
         forceLink<GNode, any>(edges)
           .id((d: any) => d.id)
-          .distance(48)
-          .strength(0.25),
+          .distance(88)
+          .strength(0.12),
       )
-      .force("charge", forceManyBody().strength(-90))
-      .force("center", forceCenter(0, 0).strength(0.04))
-      .force("collide", forceCollide<GNode>().radius((d) => radiusFor(d) + 6))
+      .force("charge", forceManyBody().strength(-260).distanceMax(600))
+      .force("center", forceCenter(0, 0).strength(0.05))
+      .force("collide", forceCollide<GNode>().radius((d) => radiusFor(d) + 14))
       .alpha(1);
 
     if (prefersReduced || isCoarse) {
@@ -248,8 +261,11 @@
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // labels: active + neighbours always; everything in full mode / on hover
-        const showLabel = full || isActive || isNeighbor;
+        // labels: keep it uncluttered. In ambient, only the active note + its
+        // neighbours. In full mode, major hubs + whatever you're hovering.
+        const isHub = n.degree >= 5;
+        const nearHover = hoveredId != null && (n.id === hoveredId || hoverNeighbors.has(n.id));
+        const showLabel = full ? isHub || nearHover : isActive || isNeighbor;
         if (showLabel) {
           ctx.font = `${full ? 12 : 11}px "JetBrains Mono Variable", monospace`;
           ctx.fillStyle = isActive ? colors.active : colors.faint;
@@ -326,7 +342,18 @@
       (ev.target as Element).setPointerCapture?.(ev.pointerId);
     });
     canvas.addEventListener("pointermove", (ev) => {
-      if (!full || !dragging) return;
+      if (!full) return;
+      if (!dragging) {
+        // hover: reveal this node's label + its neighbours', declutter the rest
+        const n = pickNode(ev.clientX, ev.clientY);
+        const id = n?.id ?? null;
+        if (id !== hoveredId) {
+          hoveredId = id;
+          hoverNeighbors = id ? neighborsOf(id) : new Set();
+          canvas.style.cursor = id ? "pointer" : "grab";
+        }
+        return;
+      }
       if (dragging.node) {
         const w = worldFromScreen(ev.clientX, ev.clientY);
         dragging.node.fx = w.x;
@@ -377,6 +404,9 @@
           sim.alphaTarget(0.03).restart();
         }
       } else {
+        hoveredId = null;
+        hoverNeighbors = new Set();
+        canvas.style.cursor = "";
         focus(document.body.dataset.note ?? null);
         if (prefersReduced || isCoarse) draw();
       }
