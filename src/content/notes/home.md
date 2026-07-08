@@ -6,12 +6,12 @@ group: hub
 
 Hello,
 
-My name is **Owen Parks**, an undergraduate engineering student in my final year at the
-[University of Washington](https://www.washington.edu). I focused on
+I'm **Owen**, an undergraduate engineering student at the
+[University of Washington](https://www.washington.edu). I am focused on
 [[materials-science|materials science]] alongside [[applied-mathematics|applied]] and
 [[pure-mathematics|pure math]]. 
 
-Currently, I am a mathematics research intern at [Math, Inc.](https://www.math.inc/) and an undergraduate researcher in the Roumeli research group at the UW.
+Currently, I am a mathematics research intern at [Math, Inc.](https://www.math.inc/) and an undergraduate researcher in the [Roumeli research group](https://sites.google.com/uw.edu/roumeli-research-group/) at the UW.
 
 When I'm not in the lab or buried in a p-set or book, I'm outside [[biking|biking]], [[fly-fishing|fly fishing]], or [[hiking|hiking]] in the Pacific Northwest. I also keep a [[bookshelf|bookshelf]] and,
 occasionally, a [[blog|blog]].
