@@ -61,11 +61,10 @@ const cfBeacon = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
     <!-- set theme before paint to avoid a flash of the wrong mode -->
     <script is:inline>
       (() => {
+        // Light by default for everyone. Only an explicit dark toggle opts in;
+        // we deliberately ignore the OS prefers-color-scheme setting.
         const t = localStorage.getItem("theme");
-        const dark =
-          t === "dark" ||
-          (!t && window.matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.classList.toggle("dark", t === "dark");
       })();
     </script>
 
