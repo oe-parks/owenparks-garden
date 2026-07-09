@@ -24,7 +24,8 @@
   import { navigate } from "astro:transitions/client";
 
   type Item = { id: string; title: string; url: string; group: string };
-  const GROUPS: Record<string, string> = {
+
+  const GROUP_LABEL: Record<string, string> = {
     hub: "Pages",
     interest: "Interests",
     hobby: "Life",
@@ -33,9 +34,21 @@
     blog: "Writing",
     meta: "Meta",
   };
+  // the order sections appear when you haven't typed anything
+  const GROUP_ORDER: Record<string, number> = {
+    hub: 0,
+    interest: 1,
+    hobby: 2,
+    book: 3,
+    category: 4,
+    blog: 5,
+    meta: 6,
+  };
+  const rank = (g: string) => GROUP_ORDER[g] ?? 99;
 
   let items: Item[] = [];
   let filtered: Item[] = [];
+  let query = "";
   let active = 0;
 
   async function loadIndex() {
@@ -43,64 +56,121 @@
     try {
       const data = await fetch("/graph.json").then((r) => r.json());
       items = data.nodes.map((n: any) => ({ id: n.id, title: n.title, url: n.url, group: n.group }));
+      // default (empty query) order: by section, then alphabetically
+      items.sort((a, b) => rank(a.group) - rank(b.group) || a.title.localeCompare(b.title));
     } catch {
       items = [];
     }
   }
 
-  // subsequence fuzzy score: lower is better; -1 = no match
-  function score(q: string, s: string): number {
+  /**
+   * Relevance score — lower is better, -1 means no match.
+   * Tiers: exact prefix < word-start < substring < subsequence.
+   */
+  function score(q: string, title: string): number {
     if (!q) return 0;
+    const s = title.toLowerCase();
     q = q.toLowerCase();
-    s = s.toLowerCase();
+
+    if (s.startsWith(q)) return 0; // "mach" -> "Machine Learning"
+    // start of any word: "mach" -> "Why *Mach*ines Learn"
+    for (const m of s.matchAll(/\b\w/g)) {
+      if (s.startsWith(q, m.index!)) return 1 + m.index! / 1000;
+    }
+    const idx = s.indexOf(q);
+    if (idx >= 0) return 10 + idx / 1000; // substring anywhere
+
+    // subsequence fallback: "wml" -> "Why Machines Learn"
     let qi = 0,
-      penalty = 0,
+      gaps = 0,
       last = -1;
     for (let i = 0; i < s.length && qi < q.length; i++) {
       if (s[i] === q[qi]) {
-        if (last >= 0) penalty += i - last - 1;
+        if (last >= 0) gaps += i - last - 1;
         last = i;
         qi++;
       }
     }
-    return qi === q.length ? penalty + s.indexOf(q[0]) : -1;
+    return qi === q.length ? 100 + gaps : -1;
   }
 
   function render() {
     const list = document.getElementById("switcher-results")!;
     list.innerHTML = "";
+    const searching = query.length > 0;
     let lastGroup = "";
+
     filtered.forEach((it, i) => {
-      if (it.group !== lastGroup) {
+      // section headers only when browsing (no query); when searching we sort by
+      // relevance instead, and tag each row with its section so it stays legible
+      if (!searching && it.group !== lastGroup) {
         lastGroup = it.group;
         const h = document.createElement("li");
-        h.className = "px-4 pt-2 pb-1 font-mono text-[0.65rem] uppercase tracking-wider text-ink-faint";
-        h.textContent = GROUPS[it.group] ?? it.group;
+        h.className =
+          "px-4 pt-2 pb-1 font-mono text-[0.65rem] uppercase tracking-wider text-ink-faint";
+        h.textContent = GROUP_LABEL[it.group] ?? it.group;
         list.appendChild(h);
       }
+
       const li = document.createElement("li");
       li.dataset.idx = String(i);
       li.className =
-        "cursor-pointer px-4 py-2 text-sm " +
+        "flex cursor-pointer items-baseline justify-between gap-4 px-4 py-2 text-sm " +
         (i === active ? "bg-accent/10 text-accent" : "text-ink hover:bg-[var(--hairline)]/40");
-      li.textContent = it.title;
+
+      const name = document.createElement("span");
+      name.textContent = it.title;
+      li.appendChild(name);
+
+      if (searching) {
+        const tag = document.createElement("span");
+        tag.className = "shrink-0 font-mono text-[0.65rem] uppercase tracking-wider text-ink-faint";
+        tag.textContent = GROUP_LABEL[it.group] ?? it.group;
+        li.appendChild(tag);
+      }
+
       li.addEventListener("mouseenter", () => {
+        if (active === i) return;
         active = i;
         render();
       });
       li.addEventListener("click", () => go(it));
       list.appendChild(li);
     });
+
+    if (filtered.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "px-4 py-3 font-mono text-xs text-ink-faint";
+      empty.textContent = "no matches";
+      list.appendChild(empty);
+    }
   }
 
   function filter(q: string) {
-    filtered = items
-      .map((it) => ({ it, s: score(q, it.title) }))
-      .filter((x) => x.s >= 0)
-      .sort((a, b) => a.s - b.s)
-      .map((x) => x.it);
+    query = q.trim();
+    if (!query) {
+      filtered = [...items]; // already sorted by section, then title
+    } else {
+      filtered = items
+        .map((it) => ({ it, s: score(query, it.title) }))
+        .filter((x) => x.s >= 0)
+        // best match first; ties broken by section, then alphabetically
+        .sort(
+          (a, b) =>
+            a.s - b.s ||
+            rank(a.it.group) - rank(b.it.group) ||
+            a.it.title.localeCompare(b.it.title),
+        )
+        .map((x) => x.it);
+    }
     active = 0;
     render();
+  }
+
+  function scrollActiveIntoView() {
+    const list = document.getElementById("switcher-results");
+    const el = list?.querySelector<HTMLElement>(`li[data-idx="${active}"]`);
+    el?.scrollIntoView({ block: "nearest" });
   }
 
   function open() {
@@ -141,10 +211,12 @@
         e.preventDefault();
         active = Math.min(active + 1, filtered.length - 1);
         render();
+        scrollActiveIntoView();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         active = Math.max(active - 1, 0);
         render();
+        scrollActiveIntoView();
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (filtered[active]) go(filtered[active]);

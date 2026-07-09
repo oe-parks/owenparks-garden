@@ -121,11 +121,16 @@
   }
   .prose-eink pre code { background: none; border: 0; padding: 0; }
   .prose-eink hr { border: 0; border-top: 1px solid var(--hairline); margin: 2rem 0; }
-  .prose-eink img { filter: grayscale(1); border: 1px solid var(--hairline); }
-  /* dithered 1-bit images: black-on-transparent, inverted for dark mode */
+  .prose-eink img { filter: grayscale(1); border: 1px solid var(--hairline); max-width: 100%; height: auto; }
+  /* dithered 1-bit images: black-on-transparent, inverted for dark mode.
+     Anything served from /photos/ or /covers/ has already been dithered at build. */
   .prose-eink img.dithered,
+  .prose-eink img[src^="/photos/"],
+  .prose-eink img[src^="/covers/"],
   img.dithered { filter: none; border: 1px solid var(--hairline); background: transparent; }
-  .dark img.dithered { filter: invert(1); }
+  .dark img.dithered,
+  .dark .prose-eink img[src^="/photos/"],
+  .dark .prose-eink img[src^="/covers/"] { filter: invert(1); }
 
   /* links: dotted underline, accent on hover; wikilinks slightly stronger */
   a {
@@ -155,6 +160,23 @@
 
 /* hairline, flat, boxy utility */
 .hairline { border: 1px solid var(--hairline); }
+
+/* photo gallery — e.g. showing off the bike fleet */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.photo-grid figure { margin: 0; }
+.photo-grid img { width: 100%; height: auto; display: block; }
+.photo-grid figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+  margin-top: 0.4rem;
+  text-align: center;
+}
 
 /* Reading backdrop: keeps text crisp over the moving graph */
 .reading-surface {

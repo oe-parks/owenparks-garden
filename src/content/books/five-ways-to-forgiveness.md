@@ -12,4 +12,4 @@ buy_link: https://www.amazon.com/Five-Ways-Forgiveness-Herald-Classics/dp/145495
 <!-- placeholder — rewrite in your voice -->
 
 Le Guin's Hainish stories on slavery, revolution, and forgiveness — the kind of
-[[science-fiction]] that stays with you.
+science fiction that stays with you.

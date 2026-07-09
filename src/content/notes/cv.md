@@ -4,7 +4,7 @@ description: Education, research, and a downloadable résumé.
 group: hub
 ---
 
-The elaborated version. The brief one page document lives in my
+The elaborated version. The brief one-page document lives in my
 [résumé (PDF)](/resume.pdf).
 
 ## Contact Information

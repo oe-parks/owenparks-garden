@@ -4,7 +4,12 @@ description: My major — engineering matter from the structure up.
 group: interest
 ---
 
-<!-- placeholder — rewrite in your voice -->
+My major at [[home|UW]], and the focus of my research in the [Roumeli Lab](https://sites.google.com/uw.edu/roumeli-research-group/). However, outside of the core requirements, much of my attention is pointed toward [[applied-mathematics|applied]] and [[pure-mathematics|pure math]].
 
-My major at [[home|UW]], and my day-to-day in the Roumeli Lab. Increasingly I
-find myself reaching for [[applied-mathematics]] to make sense of it.
+Despite this, I enjoy the deeply physical aspects of MSE. Some of my favorite classes have been:
+
+MSE 331 - Crystallography and Structure
+
+MSE 351 - Electronic Properties of Materials
+
+MSE 333 - Materials Characterization

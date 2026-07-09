@@ -74,9 +74,13 @@ async function build() {
     addNode(book.id, book.data.title, "book", slugToHref(book.id));
   }
 
+  const seenEdges = new Set<string>();
   const link = (from: string, to: string) => {
     // only draw edges between real nodes; broken wikilinks are ignored in the graph
     if (!nodeMap.has(from) || !nodeMap.has(to) || from === to) return;
+    const key = from < to ? `${from}|${to}` : `${to}|${from}`;
+    if (seenEdges.has(key)) return; // no duplicate edges (e.g. book<->bookshelf twice)
+    seenEdges.add(key);
     edges.push({ source: from, target: to });
     if (!adjacency.has(from)) adjacency.set(from, new Set());
     if (!adjacency.has(to)) adjacency.set(to, new Set());
@@ -100,15 +104,11 @@ async function build() {
     }
   }
 
-  // 4) edges from books -> their category nodes (and any wikilinks in book notes)
+  // 4) every book hangs off the bookshelf hub (a tidy constellation, no genre nodes),
+  //    plus any explicit wikilinks in the book note (e.g. trilogy cross-links)
+  const BOOKSHELF = "bookshelf";
   for (const book of books) {
-    for (const cat of book.data.categories) {
-      const catSlug = slugify(cat);
-      if (nodeMap.has(catSlug)) {
-        link(book.id, catSlug);
-        registerBacklink(catSlug, book.id);
-      }
-    }
+    link(book.id, BOOKSHELF); // structural edge only — not a textual backlink
     for (const target of extractLinks(book.body)) {
       link(book.id, target);
       registerBacklink(target, book.id);

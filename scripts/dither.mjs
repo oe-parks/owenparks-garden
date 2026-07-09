@@ -1,6 +1,9 @@
 // Build-time Floyd–Steinberg dithering for the e-ink look.
-// Reads src/assets/covers/* (+ the profile photo), writes 1-bit black-on-transparent
-// PNGs to public/covers/<name>.png. Dark mode inverts them via CSS.
+// Reads:
+//   src/assets/covers/*  -> public/covers/<name>.png   (book covers, small)
+//   src/assets/photos/*  -> public/photos/<name>.png   (photos, larger)
+//   src/assets/prof_pic  -> public/covers/prof_pic.png
+// Output is 1-bit black-on-transparent PNG; dark mode inverts it via CSS.
 import sharp from "sharp";
 import { readdir, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -9,13 +12,20 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const COVERS_SRC = path.join(root, "src/assets/covers");
-const PHOTO_SRC = path.join(root, "src/assets/prof_pic.jpg");
-const OUT = path.join(root, "public/covers");
-const WIDTH = 240;
+const PHOTOS_SRC = path.join(root, "src/assets/photos");
+const PROF_PIC = path.join(root, "src/assets/prof_pic.jpg");
+const COVERS_OUT = path.join(root, "public/covers");
+const PHOTOS_OUT = path.join(root, "public/photos");
 
-async function dither(input, outFile) {
+const COVER_WIDTH = 240;
+const PHOTO_WIDTH = 1000; // photos are displayed larger, so dither at higher res
+
+const IMAGE_RE = /\.(jpe?g|png|webp|tiff?)$/i;
+
+async function dither(input, outFile, width) {
   const { data, info } = await sharp(input)
-    .resize({ width: WIDTH, withoutEnlargement: true })
+    .rotate() // respect EXIF orientation (phone photos)
+    .resize({ width, withoutEnlargement: true })
     .grayscale()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -24,7 +34,6 @@ async function dither(input, outFile) {
   const h = info.height;
   const ch = info.channels;
 
-  // grayscale intensity buffer
   const g = new Float32Array(w * h);
   for (let i = 0; i < w * h; i++) g[i] = data[i * ch];
 
@@ -43,10 +52,7 @@ async function dither(input, outFile) {
 
       const o = i * 4;
       if (nw === 0) {
-        out[o] = 0;
-        out[o + 1] = 0;
-        out[o + 2] = 0;
-        out[o + 3] = 255; // ink
+        out[o + 3] = 255; // ink (black, opaque)
       } else {
         out[o + 3] = 0; // paper (transparent)
       }
@@ -56,26 +62,35 @@ async function dither(input, outFile) {
   await sharp(out, { raw: { width: w, height: h, channels: 4 } })
     .png({ compressionLevel: 9 })
     .toFile(outFile);
-  return path.basename(outFile);
+}
+
+async function ditherDir(srcDir, outDir, width) {
+  if (!existsSync(srcDir)) return 0;
+  await mkdir(outDir, { recursive: true });
+  const files = (await readdir(srcDir)).filter((f) => IMAGE_RE.test(f));
+  await Promise.all(
+    files.map((f) =>
+      dither(path.join(srcDir, f), path.join(outDir, f.replace(/\.[^.]+$/, "") + ".png"), width),
+    ),
+  );
+  return files.length;
 }
 
 async function run() {
-  await mkdir(OUT, { recursive: true });
-  const jobs = [];
+  await mkdir(COVERS_OUT, { recursive: true });
 
-  if (existsSync(COVERS_SRC)) {
-    const files = (await readdir(COVERS_SRC)).filter((f) => /\.(jpe?g|png|webp)$/i.test(f));
-    for (const f of files) {
-      const name = f.replace(/\.[^.]+$/, "") + ".png";
-      jobs.push(dither(path.join(COVERS_SRC, f), path.join(OUT, name)));
-    }
-  }
-  if (existsSync(PHOTO_SRC)) {
-    jobs.push(dither(PHOTO_SRC, path.join(OUT, "prof_pic.png")));
+  const covers = await ditherDir(COVERS_SRC, COVERS_OUT, COVER_WIDTH);
+  const photos = await ditherDir(PHOTOS_SRC, PHOTOS_OUT, PHOTO_WIDTH);
+
+  let profile = 0;
+  if (existsSync(PROF_PIC)) {
+    await dither(PROF_PIC, path.join(COVERS_OUT, "prof_pic.png"), COVER_WIDTH);
+    profile = 1;
   }
 
-  const done = await Promise.all(jobs);
-  console.log(`[dither] wrote ${done.length} images → public/covers/`);
+  console.log(
+    `[dither] ${covers} cover(s), ${photos} photo(s), ${profile} profile image -> public/`,
+  );
 }
 
 run().catch((e) => {
