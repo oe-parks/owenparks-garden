@@ -53,19 +53,18 @@ const dateFmt = (d?: Date) =>
           <img
             src={`/covers/${data.cover}.png`}
             alt={`Cover of ${data.title}`}
-            width="110"
+            width="131"
             loading="lazy"
-            class="dithered h-auto w-[110px] shrink-0"
+            class="dithered h-auto w-[131px] shrink-0"
           />
         )}
         <div class="min-w-0">
           <h1 class="!mb-1">{data.title}</h1>
-          <p class="!mb-2 text-ink-soft">{data.author}</p>
-          <p class="font-mono text-xs text-ink-faint">
-            {data.status}
-            {data.stars != null && <> · {"★".repeat(data.stars)}{"☆".repeat(5 - data.stars)}</>}
+          <p class="!mb-2 text-ink-soft">
+            {data.author}
             {data.released && <> · {data.released}</>}
           </p>
+          <p class="font-mono text-xs text-ink-faint">{data.status}</p>
         </div>
       </header>
     )

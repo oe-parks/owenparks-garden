@@ -3,7 +3,6 @@ title: "The Dragon Republic"
 author: R.F. Kuang
 cover: thedragonrepub
 status: Finished
-stars: 5
 started: 2025-03-27
 finished: 2025-04-01
 released: 2019

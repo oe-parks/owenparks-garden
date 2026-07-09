@@ -63,8 +63,17 @@ const cfBeacon = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
       (() => {
         // Light by default for everyone. Only an explicit dark toggle opts in;
         // we deliberately ignore the OS prefers-color-scheme setting.
-        const t = localStorage.getItem("theme");
-        document.documentElement.classList.toggle("dark", t === "dark");
+        const applyTheme = () => {
+          const t = localStorage.getItem("theme");
+          document.documentElement.classList.toggle("dark", t === "dark");
+        };
+        applyTheme();
+        // Re-apply after every View Transition swap so the choice persists across
+        // navigation (the incoming <html> is rendered light by default).
+        if (!window.__themeListenerBound) {
+          window.__themeListenerBound = true;
+          document.addEventListener("astro:after-swap", applyTheme);
+        }
       })();
     </script>
 

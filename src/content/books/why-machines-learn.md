@@ -3,7 +3,6 @@ title: "Why Machines Learn"
 author: Anil Ananthaswamy
 cover: whymachingeslearn
 status: Reading
-stars: 4
 started: 2026-02-23
 finished: 2026-03-27
 released: 2024

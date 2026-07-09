@@ -3,7 +3,6 @@ title: "The Burning God"
 author: R.F. Kuang
 cover: theburninggod
 status: Finished
-stars: 5
 started: 2026-01-15
 finished: 2026-02-01
 released: 2020
