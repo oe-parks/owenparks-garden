@@ -86,12 +86,12 @@ async function ditherDir(srcDir, outDir, width, opaque = false) {
 async function run() {
   await mkdir(COVERS_OUT, { recursive: true });
 
-  const covers = await ditherDir(COVERS_SRC, COVERS_OUT, COVER_WIDTH);
+  const covers = await ditherDir(COVERS_SRC, COVERS_OUT, COVER_WIDTH, true);
   const photos = await ditherDir(PHOTOS_SRC, PHOTOS_OUT, PHOTO_WIDTH, true);
 
   let profile = 0;
   if (existsSync(PROF_PIC)) {
-    await dither(PROF_PIC, path.join(COVERS_OUT, "prof_pic.png"), COVER_WIDTH);
+    await dither(PROF_PIC, path.join(COVERS_OUT, "prof_pic.png"), COVER_WIDTH, true);
     profile = 1;
   }
 

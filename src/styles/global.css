@@ -128,11 +128,8 @@
   .prose-eink img[src^="/photos/"],
   .prose-eink img[src^="/covers/"],
   img.dithered { filter: none; border: 1px solid var(--hairline); background: transparent; }
-  /* covers are transparent line-art — invert them for dark mode */
-  .dark img.dithered,
-  .dark .prose-eink img[src^="/covers/"] { filter: invert(1); }
-  /* photos have a baked light background — never invert (would look like a
-     negative). No outline on dark backgrounds. */
+  /* covers & photos both have a baked light background now — never invert them
+     in dark mode (that would make a negative). Photos also drop their outline. */
   .dark .prose-eink img[src^="/photos/"] { border: none; }
 
   /* links: dotted underline, accent on hover; wikilinks slightly stronger */
