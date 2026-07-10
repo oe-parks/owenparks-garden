@@ -22,7 +22,7 @@ const PHOTO_WIDTH = 1000; // photos are displayed larger, so dither at higher re
 
 const IMAGE_RE = /\.(jpe?g|png|webp|tiff?)$/i;
 
-async function dither(input, outFile, width) {
+async function dither(input, outFile, width, opaque = false) {
   const { data, info } = await sharp(input)
     .rotate() // respect EXIF orientation (phone photos)
     .resize({ width, withoutEnlargement: true })
@@ -53,6 +53,13 @@ async function dither(input, outFile, width) {
       const o = i * 4;
       if (nw === 0) {
         out[o + 3] = 255; // ink (black, opaque)
+      } else if (opaque) {
+        // baked paper background — photos stay a positive image so dark mode
+        // never inverts them into a negative
+        out[o] = 233;
+        out[o + 1] = 230;
+        out[o + 2] = 221;
+        out[o + 3] = 255;
       } else {
         out[o + 3] = 0; // paper (transparent)
       }
@@ -64,13 +71,13 @@ async function dither(input, outFile, width) {
     .toFile(outFile);
 }
 
-async function ditherDir(srcDir, outDir, width) {
+async function ditherDir(srcDir, outDir, width, opaque = false) {
   if (!existsSync(srcDir)) return 0;
   await mkdir(outDir, { recursive: true });
   const files = (await readdir(srcDir)).filter((f) => IMAGE_RE.test(f));
   await Promise.all(
     files.map((f) =>
-      dither(path.join(srcDir, f), path.join(outDir, f.replace(/\.[^.]+$/, "") + ".png"), width),
+      dither(path.join(srcDir, f), path.join(outDir, f.replace(/\.[^.]+$/, "") + ".png"), width, opaque),
     ),
   );
   return files.length;
@@ -80,7 +87,7 @@ async function run() {
   await mkdir(COVERS_OUT, { recursive: true });
 
   const covers = await ditherDir(COVERS_SRC, COVERS_OUT, COVER_WIDTH);
-  const photos = await ditherDir(PHOTOS_SRC, PHOTOS_OUT, PHOTO_WIDTH);
+  const photos = await ditherDir(PHOTOS_SRC, PHOTOS_OUT, PHOTO_WIDTH, true);
 
   let profile = 0;
   if (existsSync(PROF_PIC)) {

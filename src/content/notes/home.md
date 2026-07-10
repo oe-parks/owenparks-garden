@@ -4,6 +4,8 @@ description: Undergraduate engineer at the University of Washington — material
 group: hub
 ---
 
+<img class="home-portrait" src="/photos/owen.png" alt="Owen Parks" width="190" />
+
 Hello,
 
 I'm **Owen**, an undergraduate engineering student at the
@@ -19,7 +21,7 @@ occasionally, a [[blog|blog]].
 This site is a small garden of my interests;
 follow the links, use <kbd>G</kbd> to toggle graph view, or hit <kbd>⌘K</kbd> to wander.
 
-You can find my [[cv|CV]], or reach me by
+You can find my [[cv|CV]] and [[publications|publications]], or reach me by
 [email](mailto:owenp1@uw.edu) ·
 [GitHub](https://github.com/oe-parks) ·
 [LinkedIn](https://www.linkedin.com/in/oe-parks) ·

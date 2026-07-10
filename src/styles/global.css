@@ -128,9 +128,12 @@
   .prose-eink img[src^="/photos/"],
   .prose-eink img[src^="/covers/"],
   img.dithered { filter: none; border: 1px solid var(--hairline); background: transparent; }
+  /* covers are transparent line-art — invert them for dark mode */
   .dark img.dithered,
-  .dark .prose-eink img[src^="/photos/"],
   .dark .prose-eink img[src^="/covers/"] { filter: invert(1); }
+  /* photos have a baked light background — never invert (would look like a
+     negative). No outline on dark backgrounds. */
+  .dark .prose-eink img[src^="/photos/"] { border: none; }
 
   /* links: dotted underline, accent on hover; wikilinks slightly stronger */
   a {
@@ -160,6 +163,23 @@
 
 /* hairline, flat, boxy utility */
 .hairline { border: 1px solid var(--hairline); }
+
+/* home page portrait — floats beside the intro, wraps on mobile */
+.prose-eink img.home-portrait {
+  float: right;
+  width: 190px;
+  max-width: 42%;
+  margin: 0.25rem 0 1rem 1.5rem;
+}
+@media (max-width: 520px) {
+  .prose-eink img.home-portrait {
+    float: none;
+    display: block;
+    width: 65%;
+    max-width: 240px;
+    margin: 0 auto 1.5rem;
+  }
+}
 
 /* photo gallery — e.g. showing off the bike fleet */
 .photo-grid {
