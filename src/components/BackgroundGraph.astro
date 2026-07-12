@@ -39,6 +39,7 @@
     background: color-mix(in srgb, var(--paper) 78%, transparent);
     backdrop-filter: blur(2px);
     cursor: grab;
+    touch-action: none; /* let us handle pan/pinch instead of the browser */
   }
   body.graph-full #bg-graph:active { cursor: grabbing; }
   body.graph-full #graph-hint { opacity: 1; }
@@ -201,6 +202,7 @@
         targetCam = { tx: 0, ty: 0, scale: cam.scale };
       }
       if (!prefersReduced && !isCoarse) sim.alphaTarget(0.05).restart();
+      else draw(); // static graph: repaint so the active-node highlight updates
     }
 
     function draw() {
@@ -265,7 +267,8 @@
         // neighbours. In full mode, major hubs + whatever you're hovering.
         const isHub = n.degree >= 5;
         const nearHover = hoveredId != null && (n.id === hoveredId || hoverNeighbors.has(n.id));
-        const showLabel = full ? isHub || nearHover : isActive || isNeighbor;
+        // full mode: hubs always; everything once you zoom in (pinch/scroll)
+        const showLabel = full ? isHub || nearHover || cam.scale > 1.3 : isActive || isNeighbor;
         if (showLabel) {
           ctx.font = `${full ? 12 : 11}px "JetBrains Mono Variable", monospace`;
           ctx.fillStyle = isActive ? colors.active : colors.faint;
@@ -302,16 +305,28 @@
     };
     sim.on("tick", redrawStatic);
 
-    // ---- ambient pointer ----
+    // ---- ambient pointer (mouse only — touch must never nudge the graph) ----
     window.addEventListener("pointermove", (ev) => {
-      if (full) return;
+      if (full || ev.pointerType === "touch") return;
       pointer.x = ev.clientX;
       pointer.y = ev.clientY;
       pointer.active = true;
     });
     window.addEventListener("pointerleave", () => (pointer.active = false));
 
-    // ---- full mode interactions ----
+    // when the sim isn't animating (reduced-motion / touch) we repaint manually
+    const staticGraph = prefersReduced || isCoarse;
+    const repaint = () => {
+      if (staticGraph) draw();
+    };
+
+    // set the full-mode hint text for the input the visitor actually has
+    const hintEl = document.getElementById("graph-hint");
+    if (hintEl)
+      hintEl.textContent = isCoarse
+        ? "tap a node to travel · pinch to zoom · tap empty space to close"
+        : "click a node to travel · scroll to zoom · esc to close";
+
     function pickNode(sx: number, sy: number): GNode | null {
       const w = worldFromScreen(sx, sy);
       let best: GNode | null = null;
@@ -320,8 +335,9 @@
         const dx = n.x! - w.x;
         const dy = n.y! - w.y;
         const d = dx * dx + dy * dy;
-        const rr = (radiusFor(n) + 8) / cam.scale;
-        if (d < rr * rr && d < bestD) {
+        // a comfortable touch target on coarse pointers
+        const hit = (radiusFor(n) + (isCoarse ? 16 : 8)) / cam.scale;
+        if (d < hit * hit && d < bestD) {
           bestD = d;
           best = n;
         }
@@ -329,86 +345,165 @@
       return best;
     }
 
-    let dragging: { node: GNode | null; panning: boolean; sx: number; sy: number } | null = null;
-    canvas.addEventListener("pointerdown", (ev) => {
-      if (!full) return;
-      const n = pickNode(ev.clientX, ev.clientY);
-      dragging = { node: n, panning: !n, sx: ev.clientX, sy: ev.clientY };
-      if (n) {
-        n.fx = n.x;
-        n.fy = n.y;
-        sim.alphaTarget(0.2).restart();
+    // fit the whole graph inside the viewport (used when entering full mode)
+    function fitToView(pad = 70) {
+      if (!nodes.length) return;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      for (const n of nodes) {
+        minX = Math.min(minX, n.x!);
+        maxX = Math.max(maxX, n.x!);
+        minY = Math.min(minY, n.y!);
+        maxY = Math.max(maxY, n.y!);
       }
-      (ev.target as Element).setPointerCapture?.(ev.pointerId);
-    });
-    canvas.addEventListener("pointermove", (ev) => {
-      if (!full) return;
-      if (!dragging) {
-        // hover: reveal this node's label + its neighbours', declutter the rest
-        const n = pickNode(ev.clientX, ev.clientY);
-        const id = n?.id ?? null;
-        if (id !== hoveredId) {
-          hoveredId = id;
-          hoverNeighbors = id ? neighborsOf(id) : new Set();
-          canvas.style.cursor = id ? "pointer" : "grab";
-        }
-        return;
-      }
-      if (dragging.node) {
-        const w = worldFromScreen(ev.clientX, ev.clientY);
-        dragging.node.fx = w.x;
-        dragging.node.fy = w.y;
-      } else {
-        cam.tx += ev.clientX - dragging.sx;
-        cam.ty += ev.clientY - dragging.sy;
-        dragging.sx = ev.clientX;
-        dragging.sy = ev.clientY;
-      }
-    });
-    canvas.addEventListener("pointerup", (ev) => {
-      if (!full) return;
-      const wasDrag =
-        dragging &&
-        (Math.abs(ev.clientX - dragging.sx) > 4 || Math.abs(ev.clientY - dragging.sy) > 4);
-      if (dragging?.node) {
-        // click (not drag) → navigate
-        if (!wasDrag) {
-          const url = dragging.node.url;
-          setFull(false);
-          navigate(url);
-        }
-        dragging.node.fx = null;
-        dragging.node.fy = null;
-      }
-      sim.alphaTarget(prefersReduced || isCoarse ? 0 : 0.015);
-      dragging = null;
-    });
-    canvas.addEventListener(
-      "wheel",
-      (ev) => {
+      const gw = maxX - minX || 1;
+      const gh = maxY - minY || 1;
+      cam.scale = Math.max(0.15, Math.min((width - pad * 2) / gw, (height - pad * 2) / gh, 2));
+      cam.tx = -((minX + maxX) / 2) * cam.scale;
+      cam.ty = -((minY + maxY) / 2) * cam.scale;
+      targetCam = { ...cam };
+    }
+
+    if (isCoarse) {
+      // ===== TOUCH: tap-to-navigate, one-finger pan, pinch-zoom (no node dragging) =====
+      const pointers = new Map<number, { x: number; y: number }>();
+      let pinchDist = 0;
+      let pinchScale = 1;
+      let tap: { x: number; y: number; t: number; moved: boolean } | null = null;
+
+      canvas.addEventListener("pointerdown", (ev) => {
         if (!full) return;
-        ev.preventDefault();
-        const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
-        cam.scale = Math.max(0.3, Math.min(4, cam.scale * factor));
-      },
-      { passive: false },
-    );
+        pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (pointers.size === 1) {
+          tap = { x: ev.clientX, y: ev.clientY, t: Date.now(), moved: false };
+        } else if (pointers.size === 2) {
+          const [a, b] = [...pointers.values()];
+          pinchDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+          pinchScale = cam.scale;
+          tap = null; // two fingers → not a tap
+        }
+      });
+      canvas.addEventListener("pointermove", (ev) => {
+        if (!full || !pointers.has(ev.pointerId)) return;
+        const prev = pointers.get(ev.pointerId)!;
+        pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (pointers.size >= 2) {
+          const [a, b] = [...pointers.values()];
+          const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+          const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+          const before = worldFromScreen(mid.x, mid.y);
+          cam.scale = Math.max(0.15, Math.min(5, pinchScale * (dist / pinchDist)));
+          const after = worldFromScreen(mid.x, mid.y);
+          cam.tx += (after.x - before.x) * cam.scale; // keep pinch center steady
+          cam.ty += (after.y - before.y) * cam.scale;
+          repaint();
+        } else {
+          cam.tx += ev.clientX - prev.x; // one finger → pan
+          cam.ty += ev.clientY - prev.y;
+          if (tap && (Math.abs(ev.clientX - tap.x) > 8 || Math.abs(ev.clientY - tap.y) > 8))
+            tap.moved = true;
+          repaint();
+        }
+      });
+      const endTouch = (ev: PointerEvent) => {
+        const wasSingle = pointers.size === 1;
+        pointers.delete(ev.pointerId);
+        if (!full) return;
+        if (wasSingle && tap && !tap.moved && Date.now() - tap.t < 500) {
+          const n = pickNode(tap.x, tap.y);
+          if (n) {
+            const url = n.url;
+            setFull(false);
+            navigate(url);
+          } else {
+            setFull(false); // tap empty space closes
+          }
+        }
+        tap = null;
+      };
+      canvas.addEventListener("pointerup", endTouch);
+      canvas.addEventListener("pointercancel", endTouch);
+    } else {
+      // ===== MOUSE: drag nodes, pan, wheel-zoom, hover labels =====
+      let dragging: { node: GNode | null; sx: number; sy: number } | null = null;
+      canvas.addEventListener("pointerdown", (ev) => {
+        if (!full) return;
+        const n = pickNode(ev.clientX, ev.clientY);
+        dragging = { node: n, sx: ev.clientX, sy: ev.clientY };
+        if (n) {
+          n.fx = n.x;
+          n.fy = n.y;
+          sim.alphaTarget(0.2).restart();
+        }
+        (ev.target as Element).setPointerCapture?.(ev.pointerId);
+      });
+      canvas.addEventListener("pointermove", (ev) => {
+        if (!full) return;
+        if (!dragging) {
+          const n = pickNode(ev.clientX, ev.clientY);
+          const id = n?.id ?? null;
+          if (id !== hoveredId) {
+            hoveredId = id;
+            hoverNeighbors = id ? neighborsOf(id) : new Set();
+            canvas.style.cursor = id ? "pointer" : "grab";
+          }
+          return;
+        }
+        if (dragging.node) {
+          const w = worldFromScreen(ev.clientX, ev.clientY);
+          dragging.node.fx = w.x;
+          dragging.node.fy = w.y;
+        } else {
+          cam.tx += ev.clientX - dragging.sx;
+          cam.ty += ev.clientY - dragging.sy;
+          dragging.sx = ev.clientX;
+          dragging.sy = ev.clientY;
+        }
+      });
+      canvas.addEventListener("pointerup", (ev) => {
+        if (!full) return;
+        const wasDrag =
+          dragging &&
+          (Math.abs(ev.clientX - dragging.sx) > 4 || Math.abs(ev.clientY - dragging.sy) > 4);
+        if (dragging?.node) {
+          if (!wasDrag) {
+            const url = dragging.node.url;
+            setFull(false);
+            navigate(url);
+          }
+          dragging.node.fx = null;
+          dragging.node.fy = null;
+        }
+        sim.alphaTarget(prefersReduced ? 0 : 0.015);
+        dragging = null;
+      });
+      canvas.addEventListener(
+        "wheel",
+        (ev) => {
+          if (!full) return;
+          ev.preventDefault();
+          const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+          cam.scale = Math.max(0.3, Math.min(4, cam.scale * factor));
+        },
+        { passive: false },
+      );
+    }
 
     function setFull(v: boolean) {
       full = v;
       document.body.classList.toggle("graph-full", v);
       if (v) {
-        if (prefersReduced || isCoarse) {
-          draw();
-        } else {
-          sim.alphaTarget(0.03).restart();
-        }
+        fitToView();
+        if (staticGraph) draw();
+        else sim.alphaTarget(0.03).restart();
       } else {
         hoveredId = null;
         hoverNeighbors = new Set();
         canvas.style.cursor = "";
         focus(document.body.dataset.note ?? null);
-        if (prefersReduced || isCoarse) draw();
+        if (staticGraph) draw();
       }
     }
 
