@@ -4,6 +4,4 @@ description: Occasional notes and essays.
 group: hub
 ---
 
-<!-- placeholder — rewrite in your voice -->
-
-Occasional writing — half-formed ideas, things I'm learning, the odd essay.
+Occasional writings, half-formed ideas, things I'm learning, and the odd essay.
