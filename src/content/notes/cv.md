@@ -37,3 +37,7 @@ ENGRUD & general studies
 ## Languages
 
 English (native) · Spanish (conversational)
+
+## References
+
+Available upon request.
