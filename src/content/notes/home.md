@@ -22,7 +22,6 @@ This site is a small garden of my interests;
 follow the links, use <kbd>G</kbd> to toggle graph view, or hit <kbd>⌘K</kbd> to wander.
 
 You can find my [[cv|CV]], [[publications|publications]], and [[references|references]], or reach me by
-[email](mailto:owenp1@uw.edu) ·
-[GitHub](https://github.com/oe-parks) ·
-[LinkedIn](https://www.linkedin.com/in/oe-parks) ·
-[Strava](https://www.strava.com/athletes/81998129).
+[email](mailto:owenp1@uw.edu),
+[GitHub](https://github.com/oe-parks), and
+[LinkedIn](https://www.linkedin.com/in/oe-parks).
