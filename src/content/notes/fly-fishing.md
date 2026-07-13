@@ -7,4 +7,4 @@ group: hobby
 <!-- placeholder — rewrite in your voice -->
 
 I like fly fishing. Standing in cold water, thinking about nothing and
-everything. A good antidote to too much [[pure-mathematics]].
+everything. A good antidote to too much time at a desk.
